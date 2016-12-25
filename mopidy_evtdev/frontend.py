@@ -14,12 +14,15 @@ class EvtDevFrontend(pykka.ThreadingActor):
         dev_dir = config['evtdev']['dev_dir']
         devices = config['evtdev']['devices']
         vol_step_size = config['evtdev']['vol_step_size']
+        min_vol = config['evtdev']['min_vol']
+        max_vol = config['evtdev']['max_vol']
         refresh = config['evtdev']['refresh']
+        mapping = config['evtdev']['mapping']
 
         # EvtDevAgent performs all the handling of device
         # key presses on our behalf
         self.agent = EvtDevAgent(core, dev_dir, devices,
-                                 vol_step_size, refresh)
+                                 vol_step_size, refresh, min_vol, max_vol, mapping)
         logger.info('EvtDevAgent started')
 
     def on_stop(self):

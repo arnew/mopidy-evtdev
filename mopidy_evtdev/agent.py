@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 import logging
-import gobject
+from gi.repository import GObject
 import evdev
 
 from mopidy.core import PlaybackState
@@ -13,7 +13,7 @@ class EvtDevAgent(object):
 
     MAX_TIME_INTERVAL = 5.0   # Maximum number of seconds between events
 
-    def __init__(self, core, dev_dir, devices, vol_step_size, refresh):
+    def __init__(self, core, dev_dir, devices, vol_step_size, refresh, min_vol, max_vol, mapping):
 
         self.core = core
         self.dev_dir = dev_dir
@@ -24,22 +24,34 @@ class EvtDevAgent(object):
         self.last_event = None
         self.curr_input_devices = {}
         self.event_sources = {}
+	self.min_vol = min_vol
+	self.max_vol = max_vol
 
         # Setup dict map of ecode events to handler functions
-        self.ecode_map = {
-            evdev.ecodes.KEY_PLAYCD: self._play_pause,
-            evdev.ecodes.KEY_PLAY: self._play_pause,
-            evdev.ecodes.KEY_PLAYPAUSE: self._play_pause,
-            evdev.ecodes.KEY_PAUSE: self._play_pause,
-            evdev.ecodes.KEY_PAUSECD: self._play_pause,
-            evdev.ecodes.KEY_STOP: self._stop,
-            evdev.ecodes.KEY_STOPCD: self._stop,
-            evdev.ecodes.KEY_NEXTSONG: self._next_track,
-            evdev.ecodes.KEY_PREVIOUSSONG: self._prev_track,
-            evdev.ecodes.KEY_VOLUMEUP: self._volume_up,
-            evdev.ecodes.KEY_VOLUMEDOWN: self._volume_down,
-            evdev.ecodes.KEY_MUTE: self._mute
-        }
+        #self.ecode_map = {
+        #    evdev.ecodes.KEY_PLAYCD: self._play_pause,
+        #    evdev.ecodes.KEY_PLAY: self._play_pause,
+        #    evdev.ecodes.KEY_PLAYPAUSE: self._play_pause,
+        #    evdev.ecodes.KEY_PAUSE: self._play_pause,
+        #    evdev.ecodes.KEY_PAUSECD: self._play_pause,
+        #    evdev.ecodes.KEY_STOP: self._stop,
+        #    evdev.ecodes.KEY_STOPCD: self._stop,
+        #    evdev.ecodes.KEY_NEXTSONG: self._next_track,
+        #    evdev.ecodes.KEY_PREVIOUSSONG: self._prev_track,
+        #    evdev.ecodes.KEY_VOLUMEUP: self._volume_up,
+        #    evdev.ecodes.KEY_VOLUMEDOWN: self._volume_down,
+        #    evdev.ecodes.KEY_MUTE: self._mute
+        #}
+        self.ecode_map = eval(mapping)
+	#{ 
+        #    evdev.ecodes.BTN_BASE: self._prev_track,
+        #    evdev.ecodes.BTN_PINKIE: self._next_track, 
+        #    evdev.ecodes.BTN_TOP2: self._stop, 
+        #    evdev.ecodes.BTN_TOP: self._play_pause, 
+        #    evdev.ecodes.BTN_THUMB2: self._mute, 
+        #    evdev.ecodes.BTN_THUMB: self._volume_down, 
+        #    evdev.ecodes.BTN_TRIGGER: self._volume_up 
+        #}
 
         # This will initiate a refresh of all attached devices and
         # initiate timeouts
@@ -150,7 +162,7 @@ class EvtDevAgent(object):
     def _volume_up(self):
         volume = self.core.playback.volume.get()
         if (volume is not None):
-            volume = min(100, volume + self.vol_step_size)
+            volume = min(self.max_vol, volume + self.vol_step_size)
             self.core.playback.set_volume(volume)
             self.core.playback.set_mute(False)
             logger.info('Set volume +%d to %d',
@@ -159,7 +171,7 @@ class EvtDevAgent(object):
     def _volume_down(self):
         volume = self.core.playback.volume.get()
         if (volume is not None):
-            volume = max(0, volume - self.vol_step_size)
+            volume = max(self.min_vol, volume - self.vol_step_size)
             self.core.playback.set_volume(volume)
             self.core.playback.set_mute(False)
             logger.info('Set volume -%d to %d',
@@ -193,7 +205,7 @@ class EvtDevAgent(object):
             pass
 
     def _register_refresh_timeout(self):
-        tag = gobject.timeout_add(int(self.refresh * 1000),
+        tag = GObject.timeout_add(int(self.refresh * 1000),
                                   self._refresh_timeout_callback)
         self.event_sources['timeout'] = tag
         logger.debug('Event sources: %s', self.event_sources)
@@ -203,7 +215,7 @@ class EvtDevAgent(object):
             if (device_name not in self.event_sources.keys()):
                 logger.debug('Adding io watch for: %s', device_name)
                 device = self.curr_input_devices[device_name]
-                tag = gobject.io_add_watch(device.fd, gobject.IO_IN,
+                tag = GObject.io_add_watch(device.fd, GObject.IO_IN,
                                            self._fd_ready_callback,
                                            device)
                 self.event_sources[device_name] = tag
@@ -212,7 +224,7 @@ class EvtDevAgent(object):
     def _deregister_event_source(self, source):
         tag = self.event_sources.pop(source, None)
         if (tag is not None):
-            gobject.source_remove(tag)
+            GObject.source_remove(tag)
 
     def _deregister_event_sources(self):
         for source in self.event_sources.keys():

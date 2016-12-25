@@ -23,6 +23,9 @@ class Extension(ext.Extension):
         schema['devices'] = config.List(optional=True)
         schema['refresh'] = config.Integer(minimum=1)
         schema['vol_step_size'] = config.Integer(minimum=1, maximum=25)
+        schema['min_vol'] = config.Integer(minimum=0, maximum=99)
+        schema['max_vol'] = config.Integer(minimum=1, maximum=100)
+        schema['mapping'] = config.String()
         return schema
 
     def validate_environment(self):
